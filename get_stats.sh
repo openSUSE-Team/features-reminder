@@ -35,9 +35,9 @@ NEW="$2"
 
 # Sanity check
 
-if [ -z "$OLD" ] || [ -z "$NEW" ]; then
+if [ -z "$OLD" ]; then
 	echo "usage:"
-	echo "   $0 [-uf] openSUSE:12.3 openSUSE:Factory"
+	echo "   $0 [-uf] openSUSE:13.1 [openSUSE:Factory]"
 	exit 1
 fi
 
@@ -46,16 +46,20 @@ fi
 if [ "$FETCH" == yes ]; then
 
 get_changes "$OLD" &
+if [ "$NEW" ]; then
 get_changes "$NEW" &
+fi
 
 wait
+if [ "$NEW" ]; then
 wait
+fi
 
 fi
 
 # Should we recompute differences?
 
-if [ "$UPDATE" == yes ]; then
+if [ "$UPDATE" == yes ] && [ "$NEW" ]; then
 
 mkdir -p diff
 cd "$NEW"

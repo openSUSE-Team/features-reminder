@@ -2,18 +2,20 @@
 
 require 'active_record'
 require 'optparse'
+require 'date'
 require 'ostruct'
 require 'open3'
 
 # Defaults for the options
 options = OpenStruct.new
-options.convert = false;
-options.reset = false;
-options.mail = false;
-options.hack = false;
-options.db = "changes.sqlite";
-options.ethreshold = 250;
-options.pthreshold = 150;
+options.convert = false
+options.reset = false
+options.mail = false
+options.base = "diff"
+options.hack = false
+options.db = "changes.sqlite"
+options.ethreshold = 250
+options.pthreshold = 150
 options.default_points = 100
 options.update_points = 50
 options.feature_points = 100
@@ -22,6 +24,9 @@ options.feature_points = 100
 OptionParser.new do |opts|
   opts.banner = "Usage: #{ARGV[0]} [options]"
 
+  opts.on("-b", "--base STR", "Base dir where to read changes from") do |v|
+    options[:base] = v
+  end
   opts.on("-d", "--db STR", "Path to the sqlite database") do |v|
     options[:db] = v
   end
@@ -71,7 +76,7 @@ ActiveRecord::Schema.define do
    if ! ActiveRecord::Base.connection.table_exists? 'changes'
    create_table :changes do |table|
       table.column :email, :text
-      table.column :date, :text
+      table.column :date, :datetime
       table.column :pkg, :text
       table.column :text, :text
       table.column :points, :integer
@@ -80,8 +85,8 @@ ActiveRecord::Schema.define do
    if ! ActiveRecord::Base.connection.index_exists?(:changes, :points)
    add_index(:changes, :points)
    end
-   if ! ActiveRecord::Base.connection.index_exists?(:changes, [:email, :date])
-   add_index(:changes, [:email, :date])
+   if ! ActiveRecord::Base.connection.index_exists?(:changes, [:email, :date, :pkg])
+   add_index(:changes, [:email, :date, :pkg])
    end
    if ! ActiveRecord::Base.connection.index_exists?(:changes, :email)
    add_index(:changes, :email)
@@ -95,16 +100,18 @@ class Pkg < ActiveRecord::Base
 end
 
 # Splits the file into database
-def process_file file
+def process_file(file, hack)
    email = ""
    date  = ""
    text  = ""
-   File.open("diff/" + file).each do |line|
+   pkg   = file.gsub(/.*\/(.*).changes/,'\1')
+   File.open(file).each do |line|
+      line = line.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '')
       if line =~ /-------------------------------------------------------------------/
          text = text.strip
          if !text.empty?
-            if options.hack || Change.where(:email => email, :date => date).
-               Change.create(:email => email, :date => date, :text => text.strip, :points => 0, :pkg => file)
+            if hack || (Change.where(:email => email, :date => date, :pkg => pkg).count == 0)
+               Change.create(:email => email, :date => date, :text => text.strip, :points => 0, :pkg => pkg)
             end
          end
          email = ""
@@ -112,7 +119,11 @@ def process_file file
          text  = ""
       else if email.empty? && date.empty? && (m = line.match /^([A-Z][a-z][a-z].*2[0-2][0-9][0-9]) - (.*@.*)$/)
             email = m[2].sub('suse.cz','suse.com').sub('suse.de','suse.com')
-            date  = m[1]
+            begin
+              date  = DateTime.parse(m[1])
+            rescue
+              date  = DateTime.parse("Jan 1 00:00:00 UTC 1970")
+            end
          else
             text += line
          end
@@ -123,14 +134,14 @@ end
 
 # Import diffs into database to make the rest of operations easier
 if options.convert
-   puts "Importing changes:"
+   puts "Importing changes from #{options.base}:"
    if options.hack
       Change.delete_all
    end
-   Dir.entries("diff").sort.select do |f|
+   Dir.entries(options.base).sort.select do |f|
       if !File.directory? f
          print " - importing changes from #{f}...\n"
-         process_file f
+         process_file options.base + "/" + f + "/" + f + ".changes", options.hack
       end
    end
 end
