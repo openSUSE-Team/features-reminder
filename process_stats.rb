@@ -70,7 +70,7 @@ ActiveRecord::Schema.define do
    end
    end
    if ! ActiveRecord::Base.connection.index_exists?(:pkgs, :name)
-   add_index(:pkgs, :name)
+      add_index(:pkgs, :name)
    end
    # Changes database
    if ! ActiveRecord::Base.connection.table_exists? 'changes'
@@ -83,13 +83,13 @@ ActiveRecord::Schema.define do
    end
    end
    if ! ActiveRecord::Base.connection.index_exists?(:changes, :points)
-   add_index(:changes, :points)
+      add_index(:changes, :points)
    end
    if ! ActiveRecord::Base.connection.index_exists?(:changes, [:email, :date, :pkg])
-   add_index(:changes, [:email, :date, :pkg])
+      add_index(:changes, [:email, :date, :pkg])
    end
    if ! ActiveRecord::Base.connection.index_exists?(:changes, :email)
-   add_index(:changes, :email)
+      add_index(:changes, :email)
    end
 end
 
