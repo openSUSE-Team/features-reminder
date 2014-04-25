@@ -69,6 +69,12 @@ ActiveRecord::Schema.define do
       table.column :points, :integer
    end
    end
+   if ! ActiveRecord::Base.connection.table_exists? 'releases'
+   create_table :releases do |table|
+      table.column :release, :text
+      table.column :change_id, :integer
+   end
+   end
    if ! ActiveRecord::Base.connection.index_exists?(:pkgs, :name)
       add_index(:pkgs, :name)
    end
@@ -98,20 +104,27 @@ class Change < ActiveRecord::Base
 end
 class Pkg < ActiveRecord::Base
 end
+class Release < ActiveRecord::Base
+end
 
 # Splits the file into database
 def process_file(file, hack)
    email = ""
    date  = ""
    text  = ""
-   pkg   = file.gsub(/.*\/(.*).changes/,'\1')
+   pkg   = file.gsub(/.*\/([^\/]*).changes/,'\1')
+   rls   = file.gsub(/.*\/?([^\/]*)\/([^\/]*).changes/,'\1')
+   chng  = nil
    File.open(file).each do |line|
       line = line.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '')
       if line =~ /-------------------------------------------------------------------/
          text = text.strip
          if !text.empty?
-            if hack || (Change.where(:email => email, :date => date, :pkg => pkg).count == 0)
-               Change.create(:email => email, :date => date, :text => text.strip, :points => 0, :pkg => pkg)
+            if hack || (chng = Change.where(:email => email, :date => date, :pkg => pkg).first) == nil
+               chng = Change.create(:email => email, :date => date, :text => text.strip, :points => 0, :pkg => pkg)
+            end
+            if hack || (Release.where(:change_id => chng.id, :release => rls).count == 0)
+               Release.create(:change_id => chng.id, :release => rls)
             end
          end
          email = ""
@@ -121,6 +134,7 @@ def process_file(file, hack)
             email = m[2].sub('suse.cz','suse.com').sub('suse.de','suse.com')
             begin
               date  = DateTime.parse(m[1])
+              throw :error unless date < DateTime.now 
             rescue
               date  = DateTime.parse("Jan 1 00:00:00 UTC 1970")
             end

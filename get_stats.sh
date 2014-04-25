@@ -25,7 +25,7 @@ cmp() {
 # Parse cmd line arguments
 
 if [ "`echo "x$1" | grep "^x-"`" ]; then
-	[ "`echo "x$1" | grep "u"`"   ] && UPDATE="yes"
+	[ "`echo "x$1" | grep "d"`"   ] && UPDATE="yes"
 	[ "`echo "x$1" | grep "f"`"   ] && FETCH="yes"
 	shift
 fi
@@ -37,7 +37,7 @@ NEW="$2"
 
 if [ -z "$OLD" ]; then
 	echo "usage:"
-	echo "   $0 [-uf] openSUSE:13.1 [openSUSE:Factory]"
+	echo "   $0 [-df] openSUSE:13.1 [openSUSE:Factory]"
 	exit 1
 fi
 
